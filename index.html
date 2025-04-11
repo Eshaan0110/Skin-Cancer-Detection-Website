@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <title>Skin Disease Classification</title>
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .card {
+      border-radius: 15px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+      border: none;
+    }
+    .card-header {
+      background: linear-gradient(135deg, #6e8efb, #a777e3);
+      color: white;
+      border-radius: 15px 15px 0 0 !important;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #6e8efb, #a777e3);
+      border: none;
+      border-radius: 50px;
+      padding: 10px 25px;
+      font-weight: 600;
+      box-shadow: 0 4px 15px rgba(110, 142, 251, 0.4);
+      transition: all 0.3s ease;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 7px 15px rgba(110, 142, 251, 0.6);
+    }
+    .upload-area {
+      border: 2px dashed #a777e3;
+      border-radius: 10px;
+      padding: 30px;
+      text-align: center;
+      margin-bottom: 20px;
+      background-color: rgba(167, 119, 227, 0.05);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .upload-area:hover {
+      background-color: rgba(167, 119, 227, 0.1);
+    }
+    .upload-icon {
+      font-size: 48px;
+      color: #a777e3;
+      margin-bottom: 15px;
+    }
+    .file-input {
+      display: none;
+    }
+    .alert-info {
+      background-color: #e3f2fd;
+      border-color: #90caf9;
+      color: #0d47a1;
+      border-radius: 10px;
+    }
+    .page-header {
+      font-weight: 700;
+      color: #5a5a5a;
+      margin-bottom: 30px;
+    }
+    .footer {
+      margin-top: 50px;
+      color: #6c757d;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-5">
+    <div class="row justify-content-center">
+      <div class="col-md-8">
+        <h1 class="text-center page-header">Skin Disease Classification</h1>
+        
+        <div class="card">
+          <div class="card-header text-center py-3">
+            <h5 class="mb-0">Upload an image for diagnosis</h5>
+          </div>
+          <div class="card-body p-4">
+            <form method="POST" enctype="multipart/form-data" id="upload-form">
+              <div class="upload-area" id="upload-area" onclick="document.getElementById('image').click();">
+                <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                <h5>Drag and drop or click to upload</h5>
+                <p class="text-muted mb-0">Supported formats: JPG, PNG, JPEG</p>
+                <input type="file" class="file-input" id="image" name="image" required>
+                <p class="selected-file-name mt-2 text-primary" id="file-name"></p>
+              </div>
+              
+              <div class="text-center">
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-search-plus me-2"></i>Analyze Image
+                </button>
+              </div>
+            </form>
+            
+            {% if prediction %}
+            <div class="alert alert-info mt-4" role="alert">
+              <i class="fas fa-info-circle me-2"></i>{{ prediction }}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        
+        <div class="text-center footer">
+          <p>This tool is for educational purposes only. Always consult with a healthcare professional.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('image').addEventListener('change', function() {
+      const fileName = this.files[0]?.name;
+      if (fileName) {
+        document.getElementById('file-name').textContent = "Selected: " + fileName;
+      }
+    });
+    
+    const dropArea = document.getElementById('upload-area');
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropArea.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, unhighlight, false);
+    });
+    
+    function highlight() {
+      dropArea.style.backgroundColor = 'rgba(167, 119, 227, 0.2)';
+    }
+    
+    function unhighlight() {
+      dropArea.style.backgroundColor = 'rgba(167, 119, 227, 0.05)';
+    }
+    
+    dropArea.addEventListener('drop', handleDrop, false);
+    
+    function handleDrop(e) {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      document.getElementById('image').files = files;
+      
+      if (files[0]) {
+        document.getElementById('file-name').textContent = "Selected: " + files[0].name;
+      }
+    }
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
