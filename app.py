@@ -7,6 +7,7 @@ from PIL import Image, UnidentifiedImageError
 from flask import Flask, request, render_template, make_response
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
 
 IMG_WIDTH, IMG_HEIGHT = 224, 224
 NUM_CLASSES = 7
@@ -53,6 +54,11 @@ data_transforms = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
+
+@app.errorhandler(413)
+def request_entity_too_large(_):
+    return render_template("index.html", label="", description="", confidence="",
+                           error="File is too large. Please upload an image smaller than 16 MB."), 413
 
 @app.after_request
 def add_header(response):

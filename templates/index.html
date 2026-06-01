@@ -73,6 +73,14 @@
       color: #6c757d;
       font-size: 14px;
     }
+    #image-preview {
+      display: none;
+      max-width: 100%;
+      max-height: 220px;
+      border-radius: 8px;
+      margin-top: 12px;
+      object-fit: contain;
+    }
   </style>
 </head>
 <body>
@@ -91,8 +99,9 @@
                 <i class="fas fa-cloud-upload-alt upload-icon"></i>
                 <h5>Drag and drop or click to upload</h5>
                 <p class="text-muted mb-0">Supported formats: JPG, PNG, JPEG</p>
-                <input type="file" class="file-input" id="image" name="image" required>
+                <input type="file" class="file-input" id="image" name="image" accept=".jpg,.jpeg,.png" required>
                 <p class="selected-file-name mt-2 text-primary" id="file-name"></p>
+                <img id="image-preview" src="" alt="Image preview">
               </div>
               
               <div class="text-center">
@@ -127,11 +136,20 @@
   </div>
 
   <script>
+    function showPreview(file) {
+      if (!file) return;
+      document.getElementById('file-name').textContent = "Selected: " + file.name;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const preview = document.getElementById('image-preview');
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
     document.getElementById('image').addEventListener('change', function() {
-      const fileName = this.files[0]?.name;
-      if (fileName) {
-        document.getElementById('file-name').textContent = "Selected: " + fileName;
-      }
+      showPreview(this.files[0]);
     });
     
     const dropArea = document.getElementById('upload-area');
@@ -167,10 +185,7 @@
       const dt = e.dataTransfer;
       const files = dt.files;
       document.getElementById('image').files = files;
-      
-      if (files[0]) {
-        document.getElementById('file-name').textContent = "Selected: " + files[0].name;
-      }
+      showPreview(files[0]);
     }
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
