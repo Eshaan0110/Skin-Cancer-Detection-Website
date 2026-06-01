@@ -102,9 +102,12 @@
               </div>
             </form>
             
-            {% if prediction %}
+            {% if label %}
             <div class="alert alert-info mt-4" role="alert">
-              <i class="fas fa-info-circle me-2"></i>{{ prediction }}
+              <i class="fas fa-info-circle me-2"></i>
+              <strong>{{ description }}</strong>
+              <span class="text-muted">({{ label }})</span>
+              &mdash; Confidence: <strong>{{ confidence }}%</strong>
             </div>
             {% endif %}
 

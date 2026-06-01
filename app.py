@@ -11,6 +11,15 @@ app = Flask(__name__)
 IMG_WIDTH, IMG_HEIGHT = 224, 224
 NUM_CLASSES = 7
 class_names = ["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"]
+class_descriptions = {
+    "akiec": "Actinic Keratoses / Intraepithelial Carcinoma",
+    "bcc":   "Basal Cell Carcinoma",
+    "bkl":   "Benign Keratosis-like Lesions",
+    "df":    "Dermatofibroma",
+    "mel":   "Melanoma",
+    "nv":    "Melanocytic Nevi",
+    "vasc":  "Vascular Lesions",
+}
 
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png"}
 
@@ -55,20 +64,23 @@ def add_header(response):
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
+        def err(msg):
+            return render_template("index.html", label="", description="", confidence="", error=msg)
+
         if model is None:
-            return render_template("index.html", prediction="", error="Model is not loaded. Please set the MODEL_PATH environment variable.")
+            return err("Model is not loaded. Please set the MODEL_PATH environment variable.")
 
         image_file = request.files.get("image")
         if not image_file or image_file.filename == "":
-            return render_template("index.html", prediction="", error="No file selected. Please choose an image to upload.")
+            return err("No file selected. Please choose an image to upload.")
 
         if not allowed_file(image_file.filename):
-            return render_template("index.html", prediction="", error="Unsupported file type. Please upload a JPG or PNG image.")
+            return err("Unsupported file type. Please upload a JPG or PNG image.")
 
         try:
             image = Image.open(image_file).convert("RGB")
         except (UnidentifiedImageError, Exception):
-            return render_template("index.html", prediction="", error="Could not read the uploaded file. Please upload a valid image.")
+            return err("Could not read the uploaded file. Please upload a valid image.")
 
         image = data_transforms(image).unsqueeze(0).to(device)
 
@@ -79,9 +91,15 @@ def index():
             predicted_label = class_names[preds[0].item()]
             confidence = confidences[0].item() * 100
 
-        return render_template("index.html", prediction=f"Predicted: {predicted_label}, Confidence: {confidence:.2f}%", error="")
+        return render_template(
+            "index.html",
+            label=predicted_label,
+            description=class_descriptions[predicted_label],
+            confidence=f"{confidence:.2f}",
+            error="",
+        )
 
-    return render_template("index.html", prediction="", error="")
+    return render_template("index.html", label="", description="", confidence="", error="")
 
 if __name__ == "__main__":
     app.run(debug=True)
