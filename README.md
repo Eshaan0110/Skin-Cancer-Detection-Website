@@ -60,6 +60,22 @@ gunicorn app:app
 
 1. Click the upload area or drag and drop an image (JPG or PNG).
 2. Click **Analyze Image**.
-3. The predicted class and confidence score are shown below the form.
+3. The predicted class, confidence score, risk level, and a full probability breakdown across all classes are shown below the form.
+
+### Batch analysis
+
+Visit `/batch` to upload several images at once. Each image is classified independently and the results are shown in a table, which can be exported to CSV from the browser.
+
+### JSON API
+
+For programmatic access, POST images directly and get JSON back:
+
+- `POST /api/predict` — form field `image` (single file) &rarr; `{label, description, confidence, risk, all_probabilities}`
+- `POST /api/batch` — one or more `images` fields &rarr; `{results: [...]}`, one entry per file
+
+Example:
+```bash
+curl -F "image=@lesion.jpg" http://127.0.0.1:5000/api/predict
+```
 
 > **Disclaimer:** This tool is for educational purposes only. Always consult a qualified healthcare professional for medical diagnosis.
