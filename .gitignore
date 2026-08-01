@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 venv/
 *.pth
+.pytest_cache/

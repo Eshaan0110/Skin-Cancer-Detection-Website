@@ -78,4 +78,13 @@ Example:
 curl -F "image=@lesion.jpg" http://127.0.0.1:5000/api/predict
 ```
 
+## Testing
+
+The test suite exercises real inference (an untrained EfficientNet-B0 checkpoint built on the fly) through Flask's test client, so it needs the full `torch`/`torchvision` install from `requirements.txt` plus `pytest`:
+
+```bash
+pip install -r requirements.txt pytest
+pytest
+```
+
 > **Disclaimer:** This tool is for educational purposes only. Always consult a qualified healthcare professional for medical diagnosis.
