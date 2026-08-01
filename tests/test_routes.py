@@ -48,6 +48,7 @@ def test_api_predict_bad_extension(client, image_bytes):
 def test_batch_get(client):
     resp = client.get("/batch")
     assert resp.status_code == 200
+    assert b"preview-grid" in resp.data
 
 
 def test_batch_post_mixed_files(client, image_bytes):

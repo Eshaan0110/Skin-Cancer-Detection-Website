@@ -85,6 +85,20 @@
     #results-table td, #results-table th {
       vertical-align: middle;
     }
+    #preview-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 15px;
+    }
+    #preview-grid .preview-thumb {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
   </style>
 </head>
 <body>
@@ -106,6 +120,7 @@
                 <p class="text-muted mb-0">Supported formats: JPG, PNG, JPEG</p>
                 <input type="file" class="file-input" id="images" name="images" accept=".jpg,.jpeg,.png" multiple required>
                 <p class="mt-2 text-primary" id="file-count"></p>
+                <div id="preview-grid"></div>
               </div>
 
               <div class="text-center">
@@ -168,12 +183,66 @@
   </div>
 
   <script>
+    function showPreviews(files) {
+      const grid = document.getElementById('preview-grid');
+      grid.innerHTML = '';
+      Array.from(files).forEach(function(file) {
+        if (!file.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          img.className = 'preview-thumb';
+          img.alt = file.name;
+          img.title = file.name;
+          grid.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
     document.getElementById('images').addEventListener('change', function() {
       const count = this.files.length;
       document.getElementById('file-count').textContent = count
         ? count + " file" + (count !== 1 ? "s" : "") + " selected"
         : "";
+      showPreviews(this.files);
     });
+
+    const dropArea = document.getElementById('upload-area');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropArea.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight() {
+      dropArea.style.backgroundColor = 'rgba(167, 119, 227, 0.2)';
+    }
+
+    function unhighlight() {
+      dropArea.style.backgroundColor = 'rgba(167, 119, 227, 0.05)';
+    }
+
+    dropArea.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+      const files = e.dataTransfer.files;
+      document.getElementById('images').files = files;
+      document.getElementById('images').dispatchEvent(new Event('change'));
+    }
 
     const exportBtn = document.getElementById('export-csv');
     if (exportBtn) {
