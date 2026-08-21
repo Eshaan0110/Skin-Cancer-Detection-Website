@@ -2,4 +2,5 @@ __pycache__/
 *.pyc
 venv/
 *.pth
+*.db
 .pytest_cache/

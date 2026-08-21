@@ -66,6 +66,13 @@ gunicorn app:app
 
 Visit `/batch` to upload several images at once. Each image is classified independently and the results are shown in a table, which can be exported to CSV from the browser.
 
+### Prediction history
+
+Every classification (single, batch, or via the JSON API) is logged to a local SQLite
+database (`predictions.db` by default, override with the `HISTORY_DB_PATH` environment
+variable). Visit `/history` to see the last 50 predictions with a per-risk-level summary,
+or clear the log from that page.
+
 ### JSON API
 
 For programmatic access, POST images directly and get JSON back:

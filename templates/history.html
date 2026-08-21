@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <title>Prediction History</title>
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .card {
+      border-radius: 15px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+      border: none;
+    }
+    .card-header {
+      background: linear-gradient(135deg, #6e8efb, #a777e3);
+      color: white;
+      border-radius: 15px 15px 0 0 !important;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    .page-header {
+      font-weight: 700;
+      color: #5a5a5a;
+      margin-bottom: 30px;
+    }
+    .footer {
+      margin-top: 50px;
+      color: #6c757d;
+      font-size: 14px;
+    }
+    .risk-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 50px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .risk-high { background-color: #f8d7da; color: #842029; }
+    .risk-medium { background-color: #fff3cd; color: #664d03; }
+    .risk-low { background-color: #d1e7dd; color: #0f5132; }
+    .nav-link-single {
+      font-size: 14px;
+    }
+    .summary-stat {
+      text-align: center;
+      padding: 10px;
+    }
+    .summary-stat .count {
+      font-size: 28px;
+      font-weight: 700;
+    }
+    .summary-stat .label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6c757d;
+    }
+    #history-table td, #history-table th {
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-5">
+    <div class="row justify-content-center">
+      <div class="col-md-10">
+        <h1 class="text-center page-header">Prediction History</h1>
+        <p class="text-center">
+          <a class="nav-link-single" href="{{ url_for('index') }}"><i class="fas fa-arrow-left me-1"></i>Single-image analysis</a>
+          &nbsp;&middot;&nbsp;
+          <a class="nav-link-single" href="{{ url_for('batch') }}"><i class="fas fa-layer-group me-1"></i>Batch analysis</a>
+        </p>
+
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="row">
+              <div class="col-4 summary-stat">
+                <div class="count text-danger">{{ risk_counts.high }}</div>
+                <div class="label">High risk</div>
+              </div>
+              <div class="col-4 summary-stat">
+                <div class="count text-warning">{{ risk_counts.medium }}</div>
+                <div class="label">Medium risk</div>
+              </div>
+              <div class="col-4 summary-stat">
+                <div class="count text-success">{{ risk_counts.low }}</div>
+                <div class="label">Low risk</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header text-center py-3">
+            <h5 class="mb-0">Last {{ entries|length }} prediction{{ 's' if entries|length != 1 else '' }}</h5>
+          </div>
+          <div class="card-body p-4">
+            {% if entries %}
+            <div class="d-flex justify-content-end mb-3">
+              <form method="POST" action="{{ url_for('history_clear') }}" onsubmit="return confirm('Clear all prediction history?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <i class="fas fa-trash-alt me-1"></i>Clear history
+                </button>
+              </form>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover" id="history-table">
+                <thead>
+                  <tr>
+                    <th>Time (UTC)</th>
+                    <th>Filename</th>
+                    <th>Prediction</th>
+                    <th>Confidence</th>
+                    <th>Risk</th>
+                    <th>Source</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for e in entries %}
+                  <tr>
+                    <td>{{ e.created_at.split('.')[0].replace('T', ' ') }}</td>
+                    <td>{{ e.filename }}</td>
+                    <td>{{ e.description }} <span class="text-muted">({{ e.label }})</span></td>
+                    <td>{{ e.confidence }}%</td>
+                    <td><span class="risk-badge risk-{{ e.risk }}">{{ e.risk }}</span></td>
+                    <td>{{ e.source }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center mb-0">No predictions logged yet. Analyze an image to see it show up here.</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="text-center footer">
+          <p>This tool is for educational purposes only. Always consult with a healthcare professional.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

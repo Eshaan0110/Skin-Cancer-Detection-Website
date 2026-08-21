@@ -35,8 +35,9 @@ def dummy_model_path(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def app_module(dummy_model_path):
+def app_module(dummy_model_path, tmp_path_factory):
     os.environ["MODEL_PATH"] = dummy_model_path
+    os.environ["HISTORY_DB_PATH"] = str(tmp_path_factory.mktemp("history") / "predictions.db")
     import app as app_module
     assert app_module.model is not None, "dummy checkpoint failed to load"
     return app_module
@@ -45,6 +46,7 @@ def app_module(dummy_model_path):
 @pytest.fixture()
 def client(app_module):
     app_module.app.config["TESTING"] = True
+    app_module.history.clear_history()
     return app_module.app.test_client()
 
 

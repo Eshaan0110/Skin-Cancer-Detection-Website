@@ -6,7 +6,10 @@ from torchvision.models import efficientnet_b0
 from PIL import Image
 from flask import Flask, request, render_template, jsonify
 
+import history
+
 app = Flask(__name__)
+history.init_db()
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
 
 IMG_WIDTH, IMG_HEIGHT = 224, 224
@@ -150,6 +153,8 @@ def index():
         except ValueError as e:
             return err(str(e))
 
+        history.log_prediction(image_file.filename, result, source="web")
+
         return render_template(
             "index.html",
             label=result["label"],
@@ -188,6 +193,8 @@ def api_predict():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
+    history.log_prediction(image_file.filename, result, source="api")
+
     return jsonify(result)
 
 
@@ -225,6 +232,7 @@ def batch():
                 entry["description"] = r["description"]
                 entry["confidence"] = f"{r['confidence']:.2f}"
                 entry["risk"] = r["risk"]
+                history.log_prediction(f.filename, r, source="web-batch")
             except ValueError as e:
                 entry["error"] = str(e)
         results.append(entry)
@@ -256,11 +264,32 @@ def api_batch():
         try:
             r = run_inference(f)
             r["filename"] = f.filename
+            history.log_prediction(f.filename, r, source="api-batch")
             results.append(r)
         except ValueError as e:
             results.append({"filename": f.filename, "error": str(e)})
 
     return jsonify({"results": results})
+
+
+@app.route("/history", methods=["GET"])
+def history_page():
+    """Recent-predictions log with a per-risk-level summary."""
+    return render_template(
+        "history.html",
+        entries=history.get_recent(50),
+        risk_counts=history.get_risk_counts(),
+    )
+
+
+@app.route("/history/clear", methods=["POST"])
+def history_clear():
+    history.clear_history()
+    return render_template(
+        "history.html",
+        entries=history.get_recent(50),
+        risk_counts=history.get_risk_counts(),
+    )
 
 
 if __name__ == "__main__":
