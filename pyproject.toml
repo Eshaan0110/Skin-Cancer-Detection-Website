@@ -1,0 +1,28 @@
+[project]
+name = "skin-lesion-classifier"
+version = "0.1.0"
+description = "Flask web app that classifies dermoscopic skin lesion images with a fine-tuned EfficientNet-B0. Educational / research demo — not a medical device."
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = { text = "MIT" }
+authors = [{ name = "Eshaan Adyanthaya" }]
+
+dependencies = [
+    "flask>=3.0,<4.0",
+    "torch>=2.5,<2.6",
+    "torchvision>=0.20,<0.21",
+    "Pillow>=10.0",
+    "gunicorn>=23.0; sys_platform != 'win32'",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
