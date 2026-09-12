@@ -1,9 +1,11 @@
+import logging
 import os
+
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 from torchvision.models import efficientnet_b0
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from flask import Flask, request, render_template, jsonify
 
 import history
@@ -11,6 +13,8 @@ import history
 app = Flask(__name__)
 history.init_db()
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
+
+logger = logging.getLogger(__name__)
 
 IMG_WIDTH, IMG_HEIGHT = 224, 224
 NUM_CLASSES = 7
@@ -39,7 +43,10 @@ RISK_LEVELS = {
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png"}
 
 device = torch.device("cpu")
-model_path = os.environ.get("MODEL_PATH", r"/home/eshaan/skin-disease-app/skin_disease_classification_model(1).pth")
+DEFAULT_MODEL_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "model", "skin_disease_classification_model.pth"
+)
+model_path = os.environ.get("MODEL_PATH", DEFAULT_MODEL_PATH)
 
 
 def allowed_file(filename):
@@ -54,7 +61,8 @@ def load_model():
         nn.Dropout(0.3),
         nn.Linear(512, NUM_CLASSES),
     )
-    m.load_state_dict(torch.load(model_path, map_location=device))
+    state_dict = torch.load(model_path, map_location=device, weights_only=True)
+    m.load_state_dict(state_dict)
     m.to(device)
     m.eval()
     return m
@@ -62,8 +70,11 @@ def load_model():
 
 try:
     model = load_model()
-except Exception as e:
-    print(f"Warning: could not load model from '{model_path}': {e}")
+except FileNotFoundError:
+    logger.warning("Model weights not found at %s. Set MODEL_PATH to enable inference.", model_path)
+    model = None
+except Exception:
+    logger.exception("Failed to load model from %s", model_path)
     model = None
 
 data_transforms = transforms.Compose([
@@ -80,7 +91,7 @@ def run_inference(image_file):
     """
     try:
         image = Image.open(image_file).convert("RGB")
-    except Exception:
+    except (UnidentifiedImageError, OSError, ValueError):
         raise ValueError("Could not read the uploaded file. Please upload a valid image.")
 
     tensor = data_transforms(image).unsqueeze(0).to(device)
@@ -128,6 +139,12 @@ def add_header(response):
     return response
 
 
+@app.route("/health", methods=["GET"])
+def health():
+    """Lightweight health check for uptime probes and CI."""
+    return jsonify({"status": "ok", "model_loaded": model is not None})
+
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
@@ -152,6 +169,9 @@ def index():
             result = run_inference(image_file)
         except ValueError as e:
             return err(str(e))
+        except Exception:
+            logger.exception("Unexpected inference error for %s", image_file.filename)
+            return err("An unexpected error occurred while analyzing this image. Please try another one.")
 
         history.log_prediction(image_file.filename, result, source="web")
 
@@ -192,6 +212,9 @@ def api_predict():
         result = run_inference(image_file)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+    except Exception:
+        logger.exception("Unexpected inference error for %s", image_file.filename)
+        return jsonify({"error": "Inference failed."}), 500
 
     history.log_prediction(image_file.filename, result, source="api")
 
@@ -235,6 +258,9 @@ def batch():
                 history.log_prediction(f.filename, r, source="web-batch")
             except ValueError as e:
                 entry["error"] = str(e)
+            except Exception:
+                logger.exception("Unexpected inference error for %s", f.filename)
+                entry["error"] = "Inference failed."
         results.append(entry)
 
     return render_template("batch.html", results=results, error="")
@@ -268,6 +294,9 @@ def api_batch():
             results.append(r)
         except ValueError as e:
             results.append({"filename": f.filename, "error": str(e)})
+        except Exception:
+            logger.exception("Unexpected inference error for %s", f.filename)
+            results.append({"filename": f.filename, "error": "Inference failed."})
 
     return jsonify({"results": results})
 
@@ -293,4 +322,7 @@ def history_clear():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    debug = os.environ.get("FLASK_DEBUG", "0").lower() in {"1", "true", "yes"}
+    host = os.environ.get("FLASK_HOST", "127.0.0.1")
+    port = int(os.environ.get("FLASK_PORT", "5000"))
+    app.run(host=host, port=port, debug=debug)
