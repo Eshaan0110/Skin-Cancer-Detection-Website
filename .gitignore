@@ -1,6 +1,9 @@
 __pycache__/
 *.pyc
 venv/
+.venv/
 *.pth
 *.db
 .pytest_cache/
+.env
+.claude/
