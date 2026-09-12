@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-  <title>Batch Skin Disease Classification</title>
+  <title>Batch Skin Lesion Classifier</title>
   <style>
     body {
       background-color: #f8f9fa;
@@ -99,22 +99,38 @@
       border-radius: 8px;
       border: 1px solid rgba(0,0,0,0.1);
     }
+    .disclaimer-banner {
+      background-color: #fff8e1;
+      border: 1px solid #ffe08a;
+      color: #6b4b00;
+      border-radius: 10px;
+      padding: 10px 15px;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
   </style>
 </head>
 <body>
   <div class="container mt-5">
     <div class="row justify-content-center">
       <div class="col-md-10">
-        <h1 class="text-center page-header">Batch Skin Disease Classification</h1>
+        <h1 class="text-center page-header">Batch Skin Lesion Classifier</h1>
         <p class="text-center">
           <a class="nav-link-single" href="{{ url_for('index') }}"><i class="fas fa-arrow-left me-1"></i>Back to single-image analysis</a>
           &nbsp;&middot;&nbsp;
           <a class="nav-link-single" href="{{ url_for('history_page') }}"><i class="fas fa-history me-1"></i>View history</a>
         </p>
 
+        <div class="disclaimer-banner" role="alert">
+          <i class="fas fa-info-circle me-1"></i>
+          <strong>Educational demo &mdash; not a medical device.</strong>
+          Predictions are produced by a machine-learning model and are not a diagnosis. Always
+          consult a qualified clinician for evaluation of a skin condition.
+        </div>
+
         <div class="card">
           <div class="card-header text-center py-3">
-            <h5 class="mb-0">Upload multiple images for diagnosis</h5>
+            <h5 class="mb-0">Upload multiple images for model prediction</h5>
           </div>
           <div class="card-body p-4">
             <form method="POST" enctype="multipart/form-data" id="upload-form">
@@ -153,9 +169,9 @@
                   <thead>
                     <tr>
                       <th>Filename</th>
-                      <th>Prediction</th>
-                      <th>Confidence</th>
-                      <th>Risk</th>
+                      <th>Model prediction</th>
+                      <th>Model confidence</th>
+                      <th>Risk category</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -180,7 +196,7 @@
         </div>
 
         <div class="text-center footer">
-          <p>This tool is for educational purposes only. Always consult with a healthcare professional.</p>
+          <p>Educational / research demo. This tool is not a substitute for professional medical evaluation.</p>
         </div>
       </div>
     </div>
