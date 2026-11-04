@@ -1,3 +1,5 @@
+import csv
+import io
 import logging
 import os
 
@@ -6,7 +8,7 @@ import torch.nn as nn
 import torchvision.transforms as transforms
 from torchvision.models import efficientnet_b0
 from PIL import Image, UnidentifiedImageError
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, Response
 
 import history
 
@@ -301,24 +303,92 @@ def api_batch():
     return jsonify({"results": results})
 
 
+HISTORY_PAGE_SIZE = 25
+HISTORY_SOURCES = ("web", "api", "web-batch", "api-batch")
+
+
+def _history_filters():
+    """Parse history filter query args; unknown values are ignored."""
+    risk = request.args.get("risk", "")
+    label = request.args.get("label", "")
+    source = request.args.get("source", "")
+    return {
+        "risk": risk if risk in ("high", "medium", "low") else None,
+        "label": label if label in class_names else None,
+        "source": source if source in HISTORY_SOURCES else None,
+        "query": request.args.get("q", "").strip()[:100] or None,
+    }
+
+
+def _history_page_data():
+    filters = _history_filters()
+    try:
+        requested = max(1, int(request.args.get("page", 1)))
+    except ValueError:
+        requested = 1
+    total = history.count_entries(**filters)
+    pages = max(1, -(-total // HISTORY_PAGE_SIZE))
+    page = min(requested, pages)
+    entries = history.get_recent(
+        HISTORY_PAGE_SIZE, offset=(page - 1) * HISTORY_PAGE_SIZE, **filters
+    )
+    return filters, entries, total, page, pages
+
+
 @app.route("/history", methods=["GET"])
 def history_page():
-    """Recent-predictions log with a per-risk-level summary."""
+    """Filterable, paginated prediction log with a per-risk-level summary."""
+    return _render_history()
+
+
+def _render_history():
+    filters, entries, total, page, pages = _history_page_data()
+    active = {k: v for k, v in filters.items() if v}
+    if "query" in active:
+        active["q"] = active.pop("query")
     return render_template(
         "history.html",
-        entries=history.get_recent(50),
+        entries=entries,
         risk_counts=history.get_risk_counts(),
+        total=total,
+        page=page,
+        pages=pages,
+        filters=filters,
+        active_args=active,
+        class_names=class_names,
+        sources=HISTORY_SOURCES,
     )
+
+
+@app.route("/history/export.csv", methods=["GET"])
+def history_export():
+    """Download the (optionally filtered) prediction log as CSV."""
+    rows = history.get_recent(limit=-1, **_history_filters())
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["id", "created_at", "filename", "label", "description",
+                     "confidence", "risk", "source"])
+    for r in rows:
+        writer.writerow([r["id"], r["created_at"], r["filename"], r["label"],
+                         r["description"], r["confidence"], r["risk"], r["source"]])
+    return Response(
+        buf.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=prediction_history.csv"},
+    )
+
+
+@app.route("/api/history", methods=["GET"])
+def api_history():
+    """JSON API: paginated prediction log. Query args: page, risk, label, source, q."""
+    _, entries, total, page, pages = _history_page_data()
+    return jsonify({"page": page, "pages": pages, "total": total, "entries": entries})
 
 
 @app.route("/history/clear", methods=["POST"])
 def history_clear():
     history.clear_history()
-    return render_template(
-        "history.html",
-        entries=history.get_recent(50),
-        risk_counts=history.get_risk_counts(),
-    )
+    return _render_history()
 
 
 if __name__ == "__main__":

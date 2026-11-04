@@ -62,3 +62,58 @@ def test_history_clear_removes_entries(client, image_bytes):
     resp = client.post("/history/clear")
     assert resp.status_code == 200
     assert b"No predictions logged yet" in resp.data
+
+
+def _post(client, image_bytes, name, path="/api/predict"):
+    client.post(path, data={"image": (image_bytes(), name)}, content_type="multipart/form-data")
+
+
+def test_filter_by_source_and_filename(client, image_bytes):
+    _post(client, image_bytes, "alpha.jpg", "/")
+    _post(client, image_bytes, "beta.png", "/api/predict")
+
+    data = client.get("/api/history?source=api").get_json()
+    assert data["total"] == 1
+    assert data["entries"][0]["filename"] == "beta.png"
+
+    data = client.get("/api/history?q=alph").get_json()
+    assert [e["filename"] for e in data["entries"]] == ["alpha.jpg"]
+
+
+def test_filename_search_escapes_wildcards(client, image_bytes):
+    _post(client, image_bytes, "alpha.jpg")
+    assert client.get("/api/history?q=%25").get_json()["total"] == 0
+    assert client.get("/api/history?q=_lpha").get_json()["total"] == 0
+
+
+def test_invalid_filter_values_are_ignored(client, image_bytes):
+    _post(client, image_bytes, "alpha.jpg")
+    data = client.get("/api/history?risk=bogus&label=nope&source=x&page=abc").get_json()
+    assert data["total"] == 1 and data["page"] == 1
+
+
+def test_pagination(client, app_module, image_bytes):
+    size = app_module.HISTORY_PAGE_SIZE
+    for i in range(size + 3):
+        _post(client, image_bytes, f"img{i}.jpg")
+    p1 = client.get("/api/history").get_json()
+    assert p1["pages"] == 2 and len(p1["entries"]) == size
+    assert p1["entries"][0]["filename"] == f"img{size + 2}.jpg"
+    p2 = client.get("/api/history?page=99").get_json()
+    assert p2["page"] == 2 and len(p2["entries"]) == 3
+    assert b"Page 1 of 2" in client.get("/history").data
+
+
+def test_csv_export_respects_filters(client, image_bytes):
+    _post(client, image_bytes, "alpha.jpg")
+    _post(client, image_bytes, "beta.png")
+    resp = client.get("/history/export.csv?q=beta")
+    assert resp.mimetype == "text/csv"
+    lines = resp.data.decode().strip().splitlines()
+    assert lines[0].startswith("id,created_at,filename")
+    assert len(lines) == 2 and "beta.png" in lines[1]
+
+
+def test_empty_filter_result_message(client, image_bytes):
+    _post(client, image_bytes, "alpha.jpg")
+    assert b"No predictions match these filters" in client.get("/history?q=zzz").data

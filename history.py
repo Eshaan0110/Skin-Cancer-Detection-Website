@@ -50,12 +50,44 @@ def log_prediction(filename, result, source):
         conn.commit()
 
 
-def get_recent(limit=50):
+def _build_where(risk=None, label=None, source=None, query=None):
+    clauses, params = [], []
+    if risk:
+        clauses.append("risk = ?")
+        params.append(risk)
+    if label:
+        clauses.append("label = ?")
+        params.append(label)
+    if source:
+        clauses.append("source = ?")
+        params.append(source)
+    if query:
+        escaped = query.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+        clauses.append("filename LIKE ? ESCAPE '!'")
+        params.append(f"%{escaped}%")
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    return where, params
+
+
+def get_recent(limit=50, offset=0, risk=None, label=None, source=None, query=None):
+    """Return logged predictions newest-first, optionally filtered and paginated.
+
+    A negative `limit` returns every matching row.
+    """
+    where, params = _build_where(risk, label, source, query)
     with closing(get_connection()) as conn:
         rows = conn.execute(
-            "SELECT * FROM predictions ORDER BY id DESC LIMIT ?", (limit,)
+            f"SELECT * FROM predictions{where} ORDER BY id DESC LIMIT ? OFFSET ?",
+            params + [limit, offset],
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def count_entries(risk=None, label=None, source=None, query=None):
+    """Number of logged predictions matching the filters."""
+    where, params = _build_where(risk, label, source, query)
+    with closing(get_connection()) as conn:
+        return conn.execute(f"SELECT COUNT(*) FROM predictions{where}", params).fetchone()[0]
 
 
 def get_risk_counts():
