@@ -1,4 +1,5 @@
 import csv
+import hmac
 import io
 import logging
 import os
@@ -348,6 +349,7 @@ def _render_history():
         active["q"] = active.pop("query")
     return render_template(
         "history.html",
+        admin_token_required=bool(os.environ.get("ADMIN_TOKEN")),
         entries=entries,
         risk_counts=history.get_risk_counts(),
         total=total,
@@ -387,6 +389,13 @@ def api_history():
 
 @app.route("/history/clear", methods=["POST"])
 def history_clear():
+    admin_token = os.environ.get("ADMIN_TOKEN", "")
+    if admin_token:
+        supplied = request.headers.get("X-Admin-Token") or request.form.get("token", "")
+        if not hmac.compare_digest(supplied.encode(), admin_token.encode()):
+            return jsonify({"error": "Invalid or missing admin token"}), 403
+    elif request.remote_addr not in {"127.0.0.1", "::1"}:
+        return jsonify({"error": "Set ADMIN_TOKEN to clear history remotely"}), 403
     history.clear_history()
     return _render_history()
 

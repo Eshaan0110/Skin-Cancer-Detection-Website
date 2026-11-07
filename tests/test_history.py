@@ -117,3 +117,22 @@ def test_csv_export_respects_filters(client, image_bytes):
 def test_empty_filter_result_message(client, image_bytes):
     _post(client, image_bytes, "alpha.jpg")
     assert b"No predictions match these filters" in client.get("/history?q=zzz").data
+
+
+def test_clear_requires_token_when_configured(client, image_bytes, monkeypatch):
+    _post(client, image_bytes, "keep.jpg", "/")
+    monkeypatch.setenv("ADMIN_TOKEN", "s3cret")
+
+    assert client.post("/history/clear").status_code == 403
+    assert client.post("/history/clear", data={"token": "wrong"}).status_code == 403
+    assert b"keep.jpg" in client.get("/history").data
+
+    resp = client.post("/history/clear", headers={"X-Admin-Token": "s3cret"})
+    assert resp.status_code == 200
+    assert b"keep.jpg" not in resp.data
+
+
+def test_clear_rejects_remote_client_without_token(client, monkeypatch):
+    monkeypatch.delenv("ADMIN_TOKEN", raising=False)
+    resp = client.post("/history/clear", environ_overrides={"REMOTE_ADDR": "203.0.113.5"})
+    assert resp.status_code == 403

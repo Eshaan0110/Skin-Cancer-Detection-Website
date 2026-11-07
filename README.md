@@ -222,6 +222,7 @@ Optional environment variables (see [`.env.example`](.env.example)):
 | `FLASK_DEBUG`     | `0`                                        | Enable Flask debug mode              |
 | `FLASK_HOST`      | `127.0.0.1`                                | Interface for the dev server         |
 | `FLASK_PORT`      | `5000`                                     | Port for the dev server              |
+| `ADMIN_TOKEN`     | _(unset)_                                  | Token required for `POST /history/clear`; unset = localhost only |
 
 ---
 

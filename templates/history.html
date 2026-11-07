@@ -149,6 +149,7 @@
             {% if entries %}
             <div class="d-flex justify-content-end mb-3">
               <form method="POST" action="{{ url_for('history_clear') }}" onsubmit="return confirm('Clear all prediction history?');">
+                {% if admin_token_required %}<input type="password" name="token" class="form-control form-control-sm d-inline-block w-auto me-2" placeholder="Admin token" required>{% endif %}
                 <button type="submit" class="btn btn-sm btn-outline-danger">
                   <i class="fas fa-trash-alt me-1"></i>Clear history
                 </button>
