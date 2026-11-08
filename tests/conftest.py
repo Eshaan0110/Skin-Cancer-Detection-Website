@@ -10,6 +10,8 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import ratelimit  # noqa: E402
+
 
 def _build_dummy_checkpoint(path):
     """Save a randomly-initialized model matching app.py's architecture.
@@ -44,9 +46,11 @@ def app_module(dummy_model_path, tmp_path_factory):
 
 
 @pytest.fixture()
-def client(app_module):
+def client(app_module, monkeypatch):
     app_module.app.config["TESTING"] = True
     app_module.history.clear_history()
+    monkeypatch.setenv("RATE_LIMIT_PER_MINUTE", "0")
+    ratelimit.reset()
     return app_module.app.test_client()
 
 

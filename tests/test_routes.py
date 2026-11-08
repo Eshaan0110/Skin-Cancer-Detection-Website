@@ -101,3 +101,43 @@ def test_api_batch_reports_per_file_errors(client, image_bytes):
 def test_api_batch_no_files(client):
     resp = client.post("/api/batch", data={}, content_type="multipart/form-data")
     assert resp.status_code == 400
+
+
+def test_api_predict_rate_limited(client, image_bytes, monkeypatch):
+    monkeypatch.setenv("RATE_LIMIT_PER_MINUTE", "2")
+    statuses = [
+        client.post(
+            "/api/predict",
+            data={"image": (image_bytes(), "a.jpg")},
+            content_type="multipart/form-data",
+        )
+        for _ in range(3)
+    ]
+    assert [r.status_code for r in statuses] == [200, 200, 429]
+    assert int(statuses[2].headers["Retry-After"]) >= 1
+    assert statuses[2].get_json()["error"] == "Rate limit exceeded."
+
+
+def test_api_batch_counts_each_file(client, image_bytes, monkeypatch):
+    monkeypatch.setenv("RATE_LIMIT_PER_MINUTE", "2")
+    data = {"images": [(image_bytes(), f"{i}.jpg") for i in range(3)]}
+    resp = client.post("/api/batch", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 429
+    data = {"images": [(image_bytes(), f"{i}.jpg") for i in range(2)]}
+    resp = client.post("/api/batch", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 200
+
+
+def test_ratelimit_window_expires():
+    import ratelimit
+    import os
+    os.environ["RATE_LIMIT_PER_MINUTE"] = "1"
+    try:
+        ratelimit.reset()
+        assert ratelimit.check("x", now=100.0) == (True, 0)
+        allowed, wait = ratelimit.check("x", now=110.0)
+        assert not allowed and wait == 50
+        assert ratelimit.check("x", now=161.0) == (True, 0)
+    finally:
+        os.environ.pop("RATE_LIMIT_PER_MINUTE", None)
+        ratelimit.reset()

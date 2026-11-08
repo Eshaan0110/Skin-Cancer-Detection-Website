@@ -12,6 +12,7 @@ from PIL import Image, UnidentifiedImageError
 from flask import Flask, request, render_template, jsonify, Response
 
 import history
+import ratelimit
 
 app = Flask(__name__)
 history.init_db()
@@ -194,6 +195,17 @@ def index():
     )
 
 
+def _rate_limited(cost=1):
+    """Return a 429 JSON response if the caller is over budget, else None."""
+    allowed, retry_after = ratelimit.check(request.remote_addr or "unknown", cost)
+    if allowed:
+        return None
+    resp = jsonify({"error": "Rate limit exceeded.", "retry_after": retry_after})
+    resp.status_code = 429
+    resp.headers["Retry-After"] = str(retry_after)
+    return resp
+
+
 @app.route("/api/predict", methods=["POST"])
 def api_predict():
     """JSON API: classify a single skin lesion image.
@@ -210,6 +222,10 @@ def api_predict():
 
     if not allowed_file(image_file.filename):
         return jsonify({"error": "Unsupported file type. Use JPG or PNG."}), 400
+
+    limited = _rate_limited()
+    if limited:
+        return limited
 
     try:
         result = run_inference(image_file)
@@ -282,6 +298,10 @@ def api_batch():
     files = request.files.getlist("images")
     if not files or all(f.filename == "" for f in files):
         return jsonify({"error": "No files provided."}), 400
+
+    limited = _rate_limited(cost=sum(1 for f in files if f and f.filename))
+    if limited:
+        return limited
 
     results = []
     for f in files:

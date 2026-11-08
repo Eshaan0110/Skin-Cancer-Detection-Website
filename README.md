@@ -223,6 +223,7 @@ Optional environment variables (see [`.env.example`](.env.example)):
 | `FLASK_HOST`      | `127.0.0.1`                                | Interface for the dev server         |
 | `FLASK_PORT`      | `5000`                                     | Port for the dev server              |
 | `ADMIN_TOKEN`     | _(unset)_                                  | Token required for `POST /history/clear`; unset = localhost only |
+| `RATE_LIMIT_PER_MINUTE` | `30`                              | Images per client per minute on `/api/predict` and `/api/batch` (429 + `Retry-After` when exceeded); `0` disables |
 
 ---
 
