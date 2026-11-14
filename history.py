@@ -106,3 +106,11 @@ def clear_history():
     with closing(get_connection()) as conn:
         conn.execute("DELETE FROM predictions")
         conn.commit()
+
+
+def delete_entry(entry_id):
+    """Delete one prediction by id. Returns True if a row was removed."""
+    with closing(get_connection()) as conn:
+        cur = conn.execute("DELETE FROM predictions WHERE id = ?", (entry_id,))
+        conn.commit()
+        return cur.rowcount > 0

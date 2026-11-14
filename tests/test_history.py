@@ -136,3 +136,39 @@ def test_clear_rejects_remote_client_without_token(client, monkeypatch):
     monkeypatch.delenv("ADMIN_TOKEN", raising=False)
     resp = client.post("/history/clear", environ_overrides={"REMOTE_ADDR": "203.0.113.5"})
     assert resp.status_code == 403
+
+
+def test_delete_single_entry_via_api(client, image_bytes):
+    _post(client, image_bytes, "one.jpg")
+    _post(client, image_bytes, "two.jpg")
+    entries = client.get("/api/history").get_json()["entries"]
+    target = next(e for e in entries if e["filename"] == "one.jpg")
+
+    resp = client.delete(f"/api/history/{target['id']}")
+    assert resp.status_code == 200
+    remaining = client.get("/api/history").get_json()
+    assert remaining["total"] == 1
+    assert remaining["entries"][0]["filename"] == "two.jpg"
+    assert client.delete(f"/api/history/{target['id']}").status_code == 404
+
+
+def test_delete_entry_requires_token_when_configured(client, image_bytes, monkeypatch):
+    _post(client, image_bytes, "keep.jpg")
+    entry_id = client.get("/api/history").get_json()["entries"][0]["id"]
+    monkeypatch.setenv("ADMIN_TOKEN", "s3cret")
+
+    assert client.delete(f"/api/history/{entry_id}").status_code == 403
+    assert client.post(f"/history/{entry_id}/delete", data={"token": "bad"}).status_code == 403
+    assert client.get("/api/history").get_json()["total"] == 1
+
+    resp = client.post(f"/history/{entry_id}/delete", data={"token": "s3cret"})
+    assert resp.status_code == 200
+    assert client.get("/api/history").get_json()["total"] == 0
+
+
+def test_delete_entry_rejects_remote_client_without_token(client, image_bytes, monkeypatch):
+    monkeypatch.delenv("ADMIN_TOKEN", raising=False)
+    _post(client, image_bytes, "keep.jpg")
+    entry_id = client.get("/api/history").get_json()["entries"][0]["id"]
+    resp = client.delete(f"/api/history/{entry_id}", environ_overrides={"REMOTE_ADDR": "203.0.113.5"})
+    assert resp.status_code == 403

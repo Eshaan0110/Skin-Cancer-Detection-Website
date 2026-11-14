@@ -407,17 +407,46 @@ def api_history():
     return jsonify({"page": page, "pages": pages, "total": total, "entries": entries})
 
 
-@app.route("/history/clear", methods=["POST"])
-def history_clear():
+def _admin_denied():
+    """Return an error response if the caller may not modify history, else None."""
     admin_token = os.environ.get("ADMIN_TOKEN", "")
     if admin_token:
         supplied = request.headers.get("X-Admin-Token") or request.form.get("token", "")
         if not hmac.compare_digest(supplied.encode(), admin_token.encode()):
             return jsonify({"error": "Invalid or missing admin token"}), 403
     elif request.remote_addr not in {"127.0.0.1", "::1"}:
-        return jsonify({"error": "Set ADMIN_TOKEN to clear history remotely"}), 403
+        return jsonify({"error": "Set ADMIN_TOKEN to modify history remotely"}), 403
+    return None
+
+
+@app.route("/history/clear", methods=["POST"])
+def history_clear():
+    denied = _admin_denied()
+    if denied:
+        return denied
     history.clear_history()
     return _render_history()
+
+
+@app.route("/history/<int:entry_id>/delete", methods=["POST"])
+def history_delete_form(entry_id):
+    denied = _admin_denied()
+    if denied:
+        return denied
+    if not history.delete_entry(entry_id):
+        return jsonify({"error": "Entry not found"}), 404
+    return _render_history()
+
+
+@app.route("/api/history/<int:entry_id>", methods=["DELETE"])
+def api_history_delete(entry_id):
+    """JSON API: delete one logged prediction. Same admin check as /history/clear."""
+    denied = _admin_denied()
+    if denied:
+        return denied
+    if not history.delete_entry(entry_id):
+        return jsonify({"error": "Entry not found"}), 404
+    return jsonify({"deleted": entry_id})
 
 
 if __name__ == "__main__":
