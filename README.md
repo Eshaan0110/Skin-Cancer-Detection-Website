@@ -57,7 +57,8 @@ without claiming any clinical utility.
   full probability breakdown across all seven classes.
 - Batch analysis with a results table and browser-side CSV export.
 - Prediction history: every classification (web, batch, or API) is logged to a local
-  SQLite database with a per-risk-level summary and a "clear history" action.
+  SQLite database with a per-risk-level summary, a per-class bar chart, date-range filtering
+  (`from`/`to`, YYYY-MM-DD, UTC) and a "clear history" action.
 - JSON API for programmatic access (`POST /api/predict`, `POST /api/batch`).
 - `/health` endpoint that reports whether the model checkpoint is loaded.
 - Graceful degradation: if the model file is missing, the app still serves the UI and
