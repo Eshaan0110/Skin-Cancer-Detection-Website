@@ -3,6 +3,7 @@ import hmac
 import io
 import logging
 import os
+from datetime import date
 
 import torch
 import torch.nn as nn
@@ -328,6 +329,13 @@ HISTORY_PAGE_SIZE = 25
 HISTORY_SOURCES = ("web", "api", "web-batch", "api-batch")
 
 
+def _parse_date(value):
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
 def _history_filters():
     """Parse history filter query args; unknown values are ignored."""
     risk = request.args.get("risk", "")
@@ -338,6 +346,8 @@ def _history_filters():
         "label": label if label in class_names else None,
         "source": source if source in HISTORY_SOURCES else None,
         "query": request.args.get("q", "").strip()[:100] or None,
+        "date_from": _parse_date(request.args.get("from", "")),
+        "date_to": _parse_date(request.args.get("to", "")),
     }
 
 
@@ -367,11 +377,16 @@ def _render_history():
     active = {k: v for k, v in filters.items() if v}
     if "query" in active:
         active["q"] = active.pop("query")
+    for key, arg in (("date_from", "from"), ("date_to", "to")):
+        if key in active:
+            active[arg] = active.pop(key).isoformat()
+    label_counts = history.get_label_counts(**filters)
     return render_template(
         "history.html",
         admin_token_required=bool(os.environ.get("ADMIN_TOKEN")),
         entries=entries,
         risk_counts=history.get_risk_counts(),
+        label_counts=label_counts,
         total=total,
         page=page,
         pages=pages,
@@ -402,7 +417,7 @@ def history_export():
 
 @app.route("/api/history", methods=["GET"])
 def api_history():
-    """JSON API: paginated prediction log. Query args: page, risk, label, source, q."""
+    """JSON API: paginated prediction log. Query args: page, risk, label, source, q, from, to (YYYY-MM-DD, UTC)."""
     _, entries, total, page, pages = _history_page_data()
     return jsonify({"page": page, "pages": pages, "total": total, "entries": entries})
 

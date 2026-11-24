@@ -140,12 +140,30 @@
                   {% for s in sources %}<option value="{{ s }}" {{ 'selected' if filters.source == s }}>{{ s }}</option>{% endfor %}
                 </select>
               </div>
+              <div class="col-md-3">
+                <input type="date" name="from" class="form-control form-control-sm" title="From date" value="{{ filters.date_from.isoformat() if filters.date_from else '' }}">
+              </div>
+              <div class="col-md-3">
+                <input type="date" name="to" class="form-control form-control-sm" title="To date" value="{{ filters.date_to.isoformat() if filters.date_to else '' }}">
+              </div>
               <div class="col-md-3 d-flex gap-2">
                 <button type="submit" class="btn btn-sm btn-primary">Filter</button>
                 <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('history_page') }}">Reset</a>
                 <a class="btn btn-sm btn-outline-success" href="{{ url_for('history_export', **active_args) }}"><i class="fas fa-download me-1"></i>CSV</a>
               </div>
             </form>
+            {% if label_counts %}
+            <div class="mb-3" id="class-chart">
+              {% set top = label_counts.values() | max %}
+              {% for name, n in label_counts.items() %}
+              <div class="d-flex align-items-center small mb-1">
+                <div style="width:120px">{{ name }}</div>
+                <div class="flex-grow-1 bg-light rounded"><div class="bg-primary rounded" style="width: {{ (n * 100 / top) | round(1) }}%; height: 14px"></div></div>
+                <div class="ms-2" style="width:40px">{{ n }}</div>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
             {% if entries %}
             <div class="d-flex justify-content-end mb-3">
               <form method="POST" action="{{ url_for('history_clear') }}" onsubmit="return confirm('Clear all prediction history?');">

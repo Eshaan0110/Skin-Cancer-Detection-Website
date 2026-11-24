@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 DB_PATH = os.environ.get("HISTORY_DB_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "predictions.db"))
 
@@ -50,7 +50,7 @@ def log_prediction(filename, result, source):
         conn.commit()
 
 
-def _build_where(risk=None, label=None, source=None, query=None):
+def _build_where(risk=None, label=None, source=None, query=None, date_from=None, date_to=None):
     clauses, params = [], []
     if risk:
         clauses.append("risk = ?")
@@ -65,16 +65,24 @@ def _build_where(risk=None, label=None, source=None, query=None):
         escaped = query.replace("!", "!!").replace("%", "!%").replace("_", "!_")
         clauses.append("filename LIKE ? ESCAPE '!'")
         params.append(f"%{escaped}%")
+    if date_from:
+        clauses.append("created_at >= ?")
+        params.append(date_from.isoformat())
+    if date_to:
+        # created_at is an ISO timestamp, so "before the next day" includes all of date_to.
+        clauses.append("created_at < ?")
+        params.append((date_to + timedelta(days=1)).isoformat())
     where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     return where, params
 
 
-def get_recent(limit=50, offset=0, risk=None, label=None, source=None, query=None):
+def get_recent(limit=50, offset=0, risk=None, label=None, source=None, query=None,
+               date_from=None, date_to=None):
     """Return logged predictions newest-first, optionally filtered and paginated.
 
     A negative `limit` returns every matching row.
     """
-    where, params = _build_where(risk, label, source, query)
+    where, params = _build_where(risk, label, source, query, date_from, date_to)
     with closing(get_connection()) as conn:
         rows = conn.execute(
             f"SELECT * FROM predictions{where} ORDER BY id DESC LIMIT ? OFFSET ?",
@@ -83,9 +91,10 @@ def get_recent(limit=50, offset=0, risk=None, label=None, source=None, query=Non
         return [dict(r) for r in rows]
 
 
-def count_entries(risk=None, label=None, source=None, query=None):
+def count_entries(risk=None, label=None, source=None, query=None,
+                  date_from=None, date_to=None):
     """Number of logged predictions matching the filters."""
-    where, params = _build_where(risk, label, source, query)
+    where, params = _build_where(risk, label, source, query, date_from, date_to)
     with closing(get_connection()) as conn:
         return conn.execute(f"SELECT COUNT(*) FROM predictions{where}", params).fetchone()[0]
 
@@ -100,6 +109,17 @@ def get_risk_counts():
         for r in rows:
             counts[r["risk"]] = r["count"]
         return counts
+
+
+def get_label_counts(**filters):
+    """Return {label: count} for entries matching the filters, most common first."""
+    where, params = _build_where(**filters)
+    with closing(get_connection()) as conn:
+        rows = conn.execute(
+            f"SELECT label, COUNT(*) AS n FROM predictions{where} GROUP BY label ORDER BY n DESC, label",
+            params,
+        ).fetchall()
+        return {r["label"]: r["n"] for r in rows}
 
 
 def clear_history():

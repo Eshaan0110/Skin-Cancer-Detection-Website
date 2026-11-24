@@ -172,3 +172,45 @@ def test_delete_entry_rejects_remote_client_without_token(client, image_bytes, m
     entry_id = client.get("/api/history").get_json()["entries"][0]["id"]
     resp = client.delete(f"/api/history/{entry_id}", environ_overrides={"REMOTE_ADDR": "203.0.113.5"})
     assert resp.status_code == 403
+
+
+def _insert_at(created_at, filename, label="nv"):
+    import history
+    with history.get_connection() as conn:
+        conn.execute(
+            "INSERT INTO predictions (created_at, filename, label, description, confidence, risk, source) "
+            "VALUES (?, ?, ?, 'd', 0.9, 'low', 'web')",
+            (created_at, filename, label),
+        )
+
+
+def test_date_range_filter(client):
+    _insert_at("2026-01-10T12:00:00+00:00", "old.jpg")
+    _insert_at("2026-02-15T23:59:00+00:00", "edge.jpg")
+    _insert_at("2026-03-01T00:00:00+00:00", "new.jpg")
+
+    body = client.get("/api/history?from=2026-02-01&to=2026-02-15").get_json()
+    assert [e["filename"] for e in body["entries"]] == ["edge.jpg"]
+
+    body = client.get("/api/history?from=2026-02-01").get_json()
+    assert body["total"] == 2
+
+    body = client.get("/api/history?to=2026-01-10").get_json()
+    assert [e["filename"] for e in body["entries"]] == ["old.jpg"]
+
+
+def test_invalid_dates_are_ignored(client):
+    _insert_at("2026-01-10T12:00:00+00:00", "old.jpg")
+    body = client.get("/api/history?from=garbage&to=2026-13-99").get_json()
+    assert body["total"] == 1
+
+
+def test_csv_export_respects_date_filter_and_chart_renders(client):
+    _insert_at("2026-01-10T12:00:00+00:00", "old.jpg", label="mel")
+    _insert_at("2026-03-01T00:00:00+00:00", "new.jpg")
+    csv_body = client.get("/history/export.csv?from=2026-02-01").data
+    assert b"new.jpg" in csv_body and b"old.jpg" not in csv_body
+
+    page = client.get("/history?to=2026-01-31")
+    assert b'id="class-chart"' in page.data
+    assert b"mel" in page.data
